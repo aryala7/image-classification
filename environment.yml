@@ -1,0 +1,14 @@
+name: base-project
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - jupyterlab
+  - pyyaml
+  - pip:
+      - -r requirements.txt
