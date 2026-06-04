@@ -1,0 +1,5 @@
+# Add pip-only dependencies here.
+# Conda-managed dependencies should go in environment.yml.
+torch
+torchvision
+torchaudio
