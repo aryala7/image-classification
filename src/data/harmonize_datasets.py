@@ -26,7 +26,8 @@ def add_sample(
         image_context: str,
         label_mapping: dict,
         final_classes: list[str],
-        stats: dict
+        stats: dict,
+        project_root: Path
 ):
     mapped_label = label_mapping[source_dataset].get(original_label)
     if mapped_label is None:
@@ -41,7 +42,7 @@ def add_sample(
         return
 
     samples.append({
-        "image_path": str(image_path),
+        "image_path": str(image_path.relative_to(project_root)),
         "label": mapped_label,
         "label_id": get_label_id(mapped_label, final_classes),
         "source_dataset": source_dataset,
@@ -55,7 +56,8 @@ def collect_trashnet(
         dataset_path: Path,
         label_mapping: dict,
         final_classes: list[str],
-        stats: dict
+        stats: dict,
+        project_root: Path
 ) -> list[dict]:
     samples = []
     source_dataset = "trashnet"
@@ -73,8 +75,8 @@ def collect_trashnet(
                     image_context="default",
                     label_mapping=label_mapping,
                     final_classes=final_classes,
-                    stats=stats
-
+                    stats=stats,
+                    project_root=project_root
                 )
 
     return samples
@@ -84,7 +86,8 @@ def collect_household_garbage(
         dataset_path: Path,
         label_mapping: dict,
         final_classes: list[str],
-        stats: dict
+        stats: dict,
+        project_root: Path
 ) -> list[dict]:
     samples = []
     source_dataset = "household_garbage"
@@ -106,7 +109,8 @@ def collect_household_garbage(
                         image_context=context,
                         label_mapping=label_mapping,
                         final_classes=final_classes,
-                        stats=stats
+                        stats=stats,
+                        project_root=project_root
                     )
     return samples
 
@@ -115,7 +119,8 @@ def collect_garbage_dataset(
         dataset_path: Path,
         label_mapping: dict,
         final_classes: list[str],
-        stats: dict
+        stats: dict,
+        project_root: Path
 ) -> list[dict]:
     samples = []
     source_dataset = "garbage_dataset"
@@ -133,7 +138,8 @@ def collect_garbage_dataset(
                     image_context="unknown",
                     label_mapping=label_mapping,
                     final_classes=final_classes,
-                    stats=stats
+                    stats=stats,
+                    project_root=project_root
                 )
     return samples
 
@@ -215,7 +221,8 @@ def main():
             dataset_path=raw_data_dir / "trashnet",
             label_mapping=label_mapping,
             final_classes=final_classes,
-            stats=stats
+            stats=stats,
+            project_root=project_root
         )
     )
     all_samples.extend(
@@ -223,7 +230,8 @@ def main():
             dataset_path=raw_data_dir / "household_garbage",
             label_mapping=label_mapping,
             final_classes=final_classes,
-            stats=stats
+            stats=stats,
+            project_root=project_root
         )
     )
     all_samples.extend(
@@ -231,7 +239,8 @@ def main():
             dataset_path=raw_data_dir / "garbage_dataset",
             label_mapping=label_mapping,
             final_classes=final_classes,
-            stats=stats
+            stats=stats,
+            project_root=project_root
         )
     )
     write_metadata_csv(
