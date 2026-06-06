@@ -12,3 +12,5 @@ dependencies:
   - pyyaml
   - pip:
       - -r requirements.txt
+
+  - kagglehub
