@@ -14,3 +14,5 @@ dependencies:
       - -r requirements.txt
 
   - kagglehub
+  - datasets
+  - huggingface-hub
