@@ -15,6 +15,10 @@ DATASETS = {
     "garbage_dataset":{
         "id": "sumn2u/garbage-classification-v2",
         "path" : "original"
+    },
+    "tricascade": {
+        "id": "salam035/waste-datasets",
+        "path": "Dataset_ThirdStage/Dataset"
     }
 }
 
