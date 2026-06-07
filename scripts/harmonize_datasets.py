@@ -42,7 +42,7 @@ def add_sample(
         return
 
     samples.append({
-        "image_path": str(image_path.relative_to(project_root)),
+        "image_path": str(image_path),
         "label": mapped_label,
         "label_id": get_label_id(mapped_label, final_classes),
         "source_dataset": source_dataset,
@@ -202,7 +202,7 @@ def write_report(samples: list[dict], stats: dict, output_path: Path):
 
 
 def main():
-    project_root = Path(__file__).resolve().parents[2]
+    project_root = Path(__file__).resolve().parents[1]
     raw_data_dir = project_root / "data" / "raw"
     processed_data_dir = project_root / "data" / "processed" / "combined_waste_dataset"
     label_mapping = load_json(project_root / "configs" / "label_mapping.json")

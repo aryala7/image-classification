@@ -12,3 +12,7 @@ dependencies:
   - pyyaml
   - pip:
       - -r requirements.txt
+
+  - kagglehub
+  - datasets
+  - huggingface-hub
