@@ -24,8 +24,9 @@ DATASETS = {
 
 
 def copy_dataset_to_raw(dataset_name: str, dataset_id: str,extra_path:str):
+    root_project = Path(__file__).resolve().parents[1]
     download_path = Path(kagglehub.dataset_download(dataset_id))
-    target_path = Path("data/raw") / dataset_name
+    target_path = ( root_project / "data" / "raw" / dataset_name)
     target_path.mkdir(parents=True,exist_ok=True)
 
     if target_path.exists():
