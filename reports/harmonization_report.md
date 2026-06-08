@@ -1,19 +1,19 @@
 # Harmonization Report
 
-Valid images: 24189
+Valid images: 45011
 
-Excluded images: 5597
+Excluded images: 15486
 
 ## Label Distribution
 
 | Label | Count |
 |---|---:|
-| cardboard | 2814 |
-| glass | 3737 |
-| metal | 3340 |
-| paper | 4930 |
-| plastic | 6579 |
-| trash | 2789 |
+| cardboard | 4849 |
+| glass | 5748 |
+| metal | 5379 |
+| paper | 8252 |
+| plastic | 10480 |
+| trash | 10303 |
 
 ## Source Dataset Distribution
 
@@ -22,10 +22,16 @@ Excluded images: 5597
 | garbage_dataset | 8162 |
 | household_garbage | 13500 |
 | trashnet | 2527 |
+| tricascade | 20822 |
 
 ## Unknown Labels
 
-No unknown labels.
+- tricascade: Z_F_Smartphones
+- tricascade: Z_G_Battery
+- tricascade: Z_H_Thermometer
+- tricascade: Z_I_Cigarette Butt
+- tricascade: Z_J_Pesticidebottle
+- tricascade: Z_K_Spray cans
 
 ## Invalid Mapped Labels
 

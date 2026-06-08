@@ -114,6 +114,34 @@ def collect_household_garbage(
                     )
     return samples
 
+def collect_tricascade(
+        dataset_path: Path,
+        label_mapping: dict,
+        final_classes: list[str],
+        stats: dict,
+        project_root: Path
+) -> list[dict]:
+    samples = []
+    source_dataset = "tricascade"
+    for label_dir in dataset_path.iterdir():
+        if not label_dir.is_dir():
+            continue
+        original_label = label_dir.name
+        for image_path in label_dir.rglob("*"):
+            if image_path.is_file() and is_image_file(image_path):
+                add_sample(
+                    samples=samples,
+                    image_path=image_path,
+                    source_dataset=source_dataset,
+                    original_label=original_label,
+                    image_context="default",
+                    label_mapping=label_mapping,
+                    final_classes=final_classes,
+                    stats=stats,
+                    project_root=project_root
+                )
+
+    return samples
 
 def collect_garbage_dataset(
         dataset_path: Path,
@@ -219,6 +247,15 @@ def main():
     all_samples.extend(
         collect_trashnet(
             dataset_path=raw_data_dir / "trashnet",
+            label_mapping=label_mapping,
+            final_classes=final_classes,
+            stats=stats,
+            project_root=project_root
+        )
+    )
+    all_samples.extend(
+        collect_tricascade(
+            dataset_path=raw_data_dir / "tricascade",
             label_mapping=label_mapping,
             final_classes=final_classes,
             stats=stats,

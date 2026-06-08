@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from huggingface_hub import login
 
 REPO_ID = "TrashBusters/combined"
-PUSH_TO_HUB = False
+PUSH_TO_HUB = True
 PRIVATE_DATASET = True
 RANDOM_STATE = 42
 TRAIN_SIZE = 0.70
