@@ -10,10 +10,12 @@ dependencies:
   - matplotlib
   - jupyterlab
   - pyyaml
-  - pip:
-      - -r requirements.txt
-
   - kagglehub
   - datasets
   - huggingface_hub
   - wandb
+  - python-dotenv
+  - pip:
+      - -r requirements.txt
+
+ 

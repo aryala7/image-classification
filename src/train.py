@@ -1,5 +1,7 @@
 """Training entry point."""
 
+from xml.parsers.expat import model
+
 import torch
 import wandb
 from src import engine
@@ -27,7 +29,17 @@ def train_all():
             entity="trash-busters",
             project="trash-busters",        # replace "garbage-classification"
             name=created_model.name,
-            config={...}
+            config = {
+                "model": created_model.name, # WIP
+                "dataset": "trashnet",        # smoke test = TrashNet only
+                "num_classes": NUM_CLASSES,
+                "epochs": epochs,             # from the MODELS tuple
+                "batch_size": BATCH_SIZE,
+                "lr": LR,
+                "optimizer": "Adam",
+                "loss": "CrossEntropyLoss",
+                "device": str(DEVICE),
+                }
         )   
 
 
