@@ -1,0 +1,14 @@
+{
+  "garbage_dataset": {
+    "battery": "exclude",
+    "biological": "trash",
+    "cardboard": "cardboard",
+    "clothes": "exclude",
+    "glass": "glass",
+    "metal": "metal",
+    "paper": "paper",
+    "plastic": "plastic",
+    "shoes": "exclude",
+    "trash": "trash"
+  }
+}

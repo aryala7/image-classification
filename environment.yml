@@ -15,4 +15,4 @@ dependencies:
 
   - kagglehub
   - datasets
-  - huggingface-hub
+  - huggingface_hub
