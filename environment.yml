@@ -16,3 +16,4 @@ dependencies:
   - kagglehub
   - datasets
   - huggingface_hub
+  - timm
