@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NUM_CLASSES = 6
-BATCH_SIZE = 32 # needs to be adjusted
-LR = 0.001 # can later be exchanged for a LR scheduler
+BATCH_SIZE = 32
+LR = 0.001
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -21,14 +21,13 @@ def train_all():
         created_model = model_fn(num_classes=NUM_CLASSES)
         created_model.to(DEVICE)
 
-        # each model gets its own W&B run
         run = wandb.init(
             entity="trash-busters",
-            project="trash-busters",        # replace "garbage-classification"
+            project="trash-busters",
             name=created_model.name,
-            config = {
-                "model": created_model.name, # WIP
-                "dataset": "trashnet",        # smoke test = TrashNet only
+            config={
+                "model": created_model.name,
+                "dataset": "trashnet",
                 "num_classes": NUM_CLASSES,
                 "epochs": epochs,
                 "batch_size": BATCH_SIZE,
@@ -36,11 +35,9 @@ def train_all():
                 "optimizer": "Adam",
                 "loss": "CrossEntropyLoss",
                 "device": str(DEVICE),
-                }
-        )   
+            }
+        )
 
-
-        # dataset setup goes here
         train_loader, val_loader = get_loaders(created_model.transforms, BATCH_SIZE)
         wandb.watch(created_model, log="all", log_freq=100)
 
