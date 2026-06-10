@@ -3,3 +3,4 @@
 torch
 torchvision
 torchaudio
+timm==1.0.27
