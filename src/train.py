@@ -1,7 +1,5 @@
 """Training entry point."""
 
-from xml.parsers.expat import model
-
 import torch
 import wandb
 from src import engine
@@ -13,14 +11,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NUM_CLASSES = 6
-EPOCHS = 30 # can later be exchanged as arguments in MODELS e.g.: MODELS = [(resnet18, 15), (convnext, 50), ...]
 BATCH_SIZE = 32 # needs to be adjusted
 LR = 0.001 # can later be exchanged for a LR scheduler
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_all():
-    for model_fn in MODELS: # can later be exchanged as "for model_fn, epochs in MODELS"
+    for model_fn, epochs in MODELS:
         created_model = model_fn(num_classes=NUM_CLASSES)
         created_model.to(DEVICE)
 
@@ -33,7 +30,7 @@ def train_all():
                 "model": created_model.name, # WIP
                 "dataset": "trashnet",        # smoke test = TrashNet only
                 "num_classes": NUM_CLASSES,
-                "epochs": epochs,             # from the MODELS tuple
+                "epochs": epochs,
                 "batch_size": BATCH_SIZE,
                 "lr": LR,
                 "optimizer": "Adam",
@@ -56,7 +53,7 @@ def train_all():
             loss_fn=loss_fn,
             train_loader=train_loader,
             val_loader=val_loader,
-            epochs=EPOCHS,
+            epochs=epochs,
             device=DEVICE,
             run=run
         )
@@ -64,7 +61,7 @@ def train_all():
         save_model(
             model=created_model,
             target_dir="models",
-            model_name=f"{created_model.name}_{EPOCHS}epochs.pth",
+            model_name=f"{created_model.name}_{epochs}epochs.pth",
             log_artifact=True
         )
 
