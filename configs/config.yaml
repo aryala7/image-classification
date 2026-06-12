@@ -1,2 +1,12 @@
 # Project configuration
+training:
+  num_classes: 6
+  batch_size: 32
+  lr: 0.001
+  optimizer: "AdamW"
+  loss: "CrossEntropyLoss"
+  wandb:
+    project: "trash-busters"
+    entity: "trash-busters"
+    dataset: "trashnet"
 
