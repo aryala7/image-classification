@@ -3,24 +3,7 @@ from pathlib import Path
 import kagglehub
 import shutil
 
-DATASETS = {
-    "trashnet":{
-        "id": "feyzazkefe/trashnet",
-        "path" : "dataset-resized"
-    },
-    "household_garbage":{
-        "id": "alistairking/recyclable-and-household-waste-classification",
-        "path" : "images/images"
-    },
-    "garbage_dataset":{
-        "id": "sumn2u/garbage-classification-v2",
-        "path" : "original"
-    },
-    "tricascade": {
-        "id": "salam035/waste-datasets",
-        "path": "Dataset_ThirdStage/Dataset"
-    }
-}
+from dataset_sources import ALL
 
 
 def copy_dataset_to_raw(dataset_name: str, dataset_id: str,extra_path:str):
@@ -38,8 +21,12 @@ def copy_dataset_to_raw(dataset_name: str, dataset_id: str,extra_path:str):
     print(f"Copied {dataset_name} to {target_path}")
 
 def main():
-    for ds,ds_info in DATASETS.items():
-        copy_dataset_to_raw(ds,ds_info["id"],ds_info["path"])
+    raw_data_dir = Path(__file__).resolve().parents[1] / "data" / "raw"
+    for source in ALL:
+        if source._is_downloaded(raw_data_dir):
+            print(f"Skipping {source.NAME}: already downloaded")
+            continue
+        copy_dataset_to_raw(source.NAME, source.KAGGLE_ID, source.KAGGLE_SUBPATH)
 
 if __name__ == "__main__":
     main()

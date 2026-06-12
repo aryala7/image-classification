@@ -11,5 +11,9 @@ outputs/models/
 outputs/logs/
 outputs/plots/
 
+
 misc/
+reports/
+confusion_data/
+wandb/
 docs/
