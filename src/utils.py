@@ -2,8 +2,15 @@
 Contains various utility functions for PyTorch model training and saving.
 """
 import torch
+import yaml
 import wandb
 from pathlib import Path
+
+
+def load_config(config_path: str = "configs/config.yaml"):
+    """Loads a YAML configuration file."""
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
 
 
 def save_model(model: torch.nn.Module,

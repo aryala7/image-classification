@@ -5,15 +5,22 @@ import wandb
 from src import engine
 from src.models import MODELS
 from src.data_test import get_loaders
-from src.utils import save_model
+from src.utils import save_model, load_config
 from dotenv import load_dotenv
 
 load_dotenv()
 
-NUM_CLASSES = 6
-BATCH_SIZE = 32
-LR = 0.001
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+config = load_config()
+training_config = config["training"]
+
+NUM_CLASSES = training_config["num_classes"]
+BATCH_SIZE = training_config["batch_size"]
+LR = training_config["lr"]
+DEVICE = torch.device(
+    "cuda" if torch.cuda.is_available() else
+    "mps" if torch.backends.mps.is_available() else
+    "cpu"
+)
 
 
 def train_all():
@@ -22,18 +29,18 @@ def train_all():
         created_model.to(DEVICE)
 
         run = wandb.init(
-            entity="trash-busters",
-            project="trash-busters",
+            entity=training_config["wandb"]["entity"],
+            project=training_config["wandb"]["project"],
             name=created_model.name,
             config={
                 "model": created_model.name,
-                "dataset": "trashnet",
+                "dataset": training_config["wandb"]["dataset"],
                 "num_classes": NUM_CLASSES,
                 "epochs": epochs,
                 "batch_size": BATCH_SIZE,
                 "lr": LR,
-                "optimizer": "Adam",
-                "loss": "CrossEntropyLoss",
+                "optimizer": training_config["optimizer"],
+                "loss": training_config["loss"],
                 "device": str(DEVICE),
             }
         )
@@ -42,7 +49,7 @@ def train_all():
         wandb.watch(created_model, log="all", log_freq=100)
 
         loss_fn = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(params=created_model.parameters(), lr=LR)
+        optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
 
         engine.train(
             model=created_model,
