@@ -10,3 +10,6 @@ data/processed/
 outputs/models/
 outputs/logs/
 outputs/plots/
+
+misc/
+docs/
