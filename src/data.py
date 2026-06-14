@@ -1,174 +1,110 @@
-"""Data loading and preprocessing utilities."""
+"""Data loading utilities for the Hugging Face waste dataset."""
 
-from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Tuple
 
 import torch
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset, Subset
-from torchvision import datasets, transforms
+from PIL import Image
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from datasets import load_dataset
+
+HF_REPO_ID = "TrashBusters/combined"
+TRAIN_SPLIT = "train"
+VALIDATION_SPLIT = "validation"
+TEST_SPLIT = "test"
 
 
-def load_image_folder_dataset(
-    data_dir: str,
-    transform: transforms.Compose,
-) -> datasets.ImageFolder:
-    """Load an ImageFolder dataset from a directory.
+def prepare_rgb_image(image: Image.Image) -> Image.Image:
+    """Convert PIL images to RGB without palette-transparency warnings."""
+    if image.mode == "RGB":
+        return image
 
-    The directory must follow the ImageFolder structure:
-    """
-    data_path = Path(data_dir)
+    if image.mode == "P" and "transparency" in image.info:
+        image = image.convert("RGBA")
 
-    if not data_path.exists():
-        raise FileNotFoundError(f"Data directory does not exist: {data_path}")
+    if image.mode == "RGBA":
+        background = Image.new("RGBA", image.size, (255, 255, 255, 255))
+        image = Image.alpha_composite(background, image)
 
-    if not data_path.is_dir():
-        raise NotADirectoryError(f"Expected a directory, but got: {data_path}")
-
-    return datasets.ImageFolder(
-        root=data_path,
-        transform=transform,
-    )
-
-
-def split_dataset_indices(
-    labels: List[int],
-    train_size: float = 0.75,
-    seed: int = 42,
-) -> Tuple[List[int], List[int]]:
-    """Create stratified train and validation indices.
-
-    Stratification keeps the class distribution similar in both splits.
-    The function only needs labels, so it works for ImageFolder and Hugging Face datasets.
-    """
-    train_indices, val_indices = train_test_split(
-        range(len(labels)),
-        train_size=train_size,
-        stratify=labels,
-        random_state=seed,
-    )
-
-    return list(train_indices), list(val_indices)
-
-
-def create_data_loader(
-    dataset: Dataset,
-    batch_size: int = 32,
-    shuffle: bool = False,
-    num_workers: int = 1,
-    collate_fn: Optional[Callable] = None,
-) -> DataLoader:
-    """Create a PyTorch DataLoader for a given dataset or subset."""
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-    )
-
-
-def create_imagefolder_dataloaders(
-    data_dir: str,
-    transform: transforms.Compose,
-    batch_size: int = 32,
-    num_workers: int = 1,
-    seed: int = 42,
-    train_size: float = 0.75,
-) -> Tuple[DataLoader, DataLoader, List[str]]:
-    """Create train and validation dataloaders from an ImageFolder dataset."""
-    dataset = load_image_folder_dataset(
-        data_dir=data_dir,
-        transform=transform,
-    )
-
-    train_indices, val_indices = split_dataset_indices(
-        labels=dataset.targets,
-        train_size=train_size,
-        seed=seed,
-    )
-
-    train_loader = create_data_loader(
-        dataset=Subset(dataset, train_indices),
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-    )
-
-    val_loader = create_data_loader(
-        dataset=Subset(dataset, val_indices),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-    )
-
-    return train_loader, val_loader, dataset.classes
+    return image.convert("RGB")
 
 
 def create_hf_collate_fn(transform: transforms.Compose) -> Callable:
-    """Create a collate function for Hugging Face image datasets.
-
-    Hugging Face datasets usually return dictionaries containing PIL images and labels.
-    The collate function converts images and labels into tensors that the model can use.
-    """
+    """Create a collate function that returns batches as ``(images, labels)``."""
 
     def collate_fn(batch):
         images = [
-            transform(item["image"].convert("RGB"))
+            transform(prepare_rgb_image(item["image"]))
             for item in batch
         ]
-
         labels = [
             item["label"]
             for item in batch
         ]
 
-        return {
-            "images": torch.stack(images),
-            "labels": torch.tensor(labels, dtype=torch.long),
-        }
+        return torch.stack(images), torch.tensor(labels, dtype=torch.long)
 
     return collate_fn
 
 
-def create_hf_dataloaders(
-    dataset: Dataset,
+def create_data_loader(
+    dataset,
     transform: transforms.Compose,
-    batch_size: int = 32,
-    num_workers: int = 1,
-    seed: int = 42,
-    train_size: float = 0.75,
-    label_column: str = "label",
-) -> Tuple[DataLoader, DataLoader]:
-    """Create train and validation dataloaders from a Hugging Face dataset.
-
-    The dataset must contain an image column named "image" and a label column.
-    By default, the label column is expected to be named "label".
-    """
-    labels = list(dataset[label_column])
-
-    train_indices, val_indices = split_dataset_indices(
-        labels=labels,
-        train_size=train_size,
-        seed=seed,
+    batch_size: int,
+    shuffle: bool,
+    num_workers: int,
+) -> DataLoader:
+    """Create a PyTorch DataLoader for one Hugging Face split."""
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        collate_fn=create_hf_collate_fn(transform),
     )
 
-    collate_fn = create_hf_collate_fn(transform)
 
+def create_training_dataloaders(
+    transform: transforms.Compose,
+    batch_size: int,
+    data_config: dict,
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
+
+    repo_id = data_config.get("repo_id", HF_REPO_ID)
+    num_workers = data_config.get("num_workers", 0)
+
+    print(f"Loading Hugging Face Hub dataset {repo_id}...")
+    dataset = load_dataset(repo_id)
+    expected_splits = {TRAIN_SPLIT, VALIDATION_SPLIT, TEST_SPLIT}
+    missing_splits = expected_splits - set(dataset.keys())
+    if missing_splits:
+        available_splits = ", ".join(dataset.keys())
+        raise KeyError(
+            f"Missing Hugging Face split(s): {sorted(missing_splits)}. "
+            f"Available splits: [{available_splits}]"
+        )
+
+    print(f"Using Hugging Face Hub dataset {repo_id}")
     train_loader = create_data_loader(
-        dataset=Subset(dataset, train_indices),
+        dataset=dataset[TRAIN_SPLIT],
+        transform=transform,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        collate_fn=collate_fn,
     )
-
-    val_loader = create_data_loader(
-        dataset=Subset(dataset, val_indices),
+    validation_loader = create_data_loader(
+        dataset=dataset[VALIDATION_SPLIT],
+        transform=transform,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        collate_fn=collate_fn,
+    )
+    test_loader = create_data_loader(
+        dataset=dataset[TEST_SPLIT],
+        transform=transform,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
     )
 
-    return train_loader, val_loader
+    return train_loader, validation_loader, test_loader

@@ -4,7 +4,7 @@ import torch
 import wandb
 from src import engine
 from src.models import MODELS
-from src.data_test import get_loaders
+from src.data import create_training_dataloaders
 from src.utils import save_model, load_config
 from dotenv import load_dotenv
 
@@ -12,6 +12,7 @@ load_dotenv()
 
 config = load_config()
 training_config = config["training"]
+data_config = config["data"]
 
 NUM_CLASSES = training_config["num_classes"]
 BATCH_SIZE = training_config["batch_size"]
@@ -24,9 +25,12 @@ DEVICE = torch.device(
 
 
 def train_all():
+    print(f"Using device: {DEVICE}")
     for model_fn, epochs in MODELS:
+        print(f"Initializing model: {model_fn.__name__}")
         created_model = model_fn(num_classes=NUM_CLASSES)
         created_model.to(DEVICE)
+        print(f"Training model: {created_model.name}")
 
         run = wandb.init(
             entity=training_config["wandb"]["entity"],
@@ -45,7 +49,17 @@ def train_all():
             }
         )
 
-        train_loader, val_loader = get_loaders(created_model.transforms, BATCH_SIZE)
+        train_loader, val_loader, test_loader = create_training_dataloaders(
+            transform=created_model.transforms,
+            batch_size=BATCH_SIZE,
+            data_config=data_config,
+        )
+        print(
+            f"Dataset sizes | "
+            f"train: {len(train_loader.dataset)} | "
+            f"validation: {len(val_loader.dataset)} | "
+            f"test: {len(test_loader.dataset)}"
+        )
         wandb.watch(created_model, log="all", log_freq=100)
 
         loss_fn = torch.nn.CrossEntropyLoss()
@@ -58,6 +72,14 @@ def train_all():
             train_loader=train_loader,
             val_loader=val_loader,
             epochs=epochs,
+            device=DEVICE,
+            run=run
+        )
+
+        engine.test(
+            model=created_model,
+            loss_fn=loss_fn,
+            test_loader=test_loader,
             device=DEVICE,
             run=run
         )

@@ -1,4 +1,8 @@
 # Project configuration
+data:
+  repo_id: "TrashBusters/combined"
+  num_workers: 0
+
 training:
   num_classes: 6
   batch_size: 32
@@ -8,5 +12,4 @@ training:
   wandb:
     project: "trash-busters"
     entity: "trash-busters"
-    dataset: "trashnet"
-
+    dataset: "combined_waste_harmonized"
