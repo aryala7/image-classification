@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from typing import Tuple
 from sklearn.metrics import f1_score
 
-CLASS_NAMES = ["can", "cardboard", "glass", "paper", "plastic", "trash"]
+CLASS_NAMES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
 
 
 def train_step(
@@ -15,12 +15,14 @@ def train_step(
         optimizer: torch.optim.Optimizer,
         loss_fn: torch.nn.Module,
         data_loader: DataLoader,
-        device: torch.device
+        device: torch.device,
+        epoch: int
 ) -> Tuple[float, float]:
     model.train()
     train_acc = 0
     train_loss = 0
-    for batch, (X, y) in enumerate(data_loader):
+    progress = tqdm(data_loader, desc=f"train epoch {epoch}", leave=False)
+    for batch, (X, y) in enumerate(progress):
         X, y = X.to(device), y.to(device)
         y_pred = model(X)
         loss = loss_fn(y_pred, y)
@@ -32,6 +34,7 @@ def train_step(
         train_acc += (y_pred_class == y).sum().item()
 
         wandb.log({"train/batch_loss": loss.item()})
+        progress.set_postfix(loss=f"{loss.item():.4f}")
 
     train_loss = train_loss / len(data_loader)
     train_acc = train_acc / len(data_loader.dataset)
@@ -42,14 +45,16 @@ def eval_step(
         model: torch.nn.Module,
         loss_fn: torch.nn.Module,
         data_loader: DataLoader,
-        device: torch.device
+        device: torch.device,
+        split_name: str = "eval"
 ) -> Tuple[float, float, float, list, list]:
     model.eval()
     test_loss, test_acc = 0, 0
     all_preds = []
     all_labels = []
     with torch.inference_mode():
-        for batch, (X, y) in enumerate(data_loader):
+        progress = tqdm(data_loader, desc=split_name, leave=False)
+        for batch, (X, y) in enumerate(progress):
             X, y = X.to(device), y.to(device)
             y_pred = model(X)
             loss = loss_fn(y_pred, y)
@@ -58,6 +63,7 @@ def eval_step(
             test_acc += (y_pred_class == y).sum().item()
             all_preds.extend(y_pred_class.cpu().numpy())
             all_labels.extend(y.cpu().numpy())
+            progress.set_postfix(loss=f"{loss.item():.4f}")
 
     test_loss = test_loss / len(data_loader)
     test_acc = test_acc / len(data_loader.dataset)
@@ -92,13 +98,15 @@ def train(
             optimizer=optimizer,
             loss_fn=loss_fn,
             data_loader=train_loader,
-            device=device
+            device=device,
+            epoch=epoch + 1
         )
         val_loss, val_acc, f1_macro, all_preds, all_labels = eval_step(
             model=model,
             loss_fn=loss_fn,
             data_loader=val_loader,
-            device=device
+            device=device,
+            split_name=f"validation epoch {epoch + 1}"
         )
 
         print(
@@ -148,3 +156,57 @@ def train(
         wandb.log_artifact(artifact)
 
     return results
+
+
+def test(
+        model: torch.nn.Module,
+        loss_fn: torch.nn.Module,
+        test_loader: DataLoader,
+        device: torch.device,
+        run: wandb.sdk.wandb_run.Run
+) -> dict:
+    """Evaluate the trained model once on the held-out test split."""
+    test_loss, test_acc, test_f1_macro, all_preds, all_labels = eval_step(
+        model=model,
+        loss_fn=loss_fn,
+        data_loader=test_loader,
+        device=device,
+        split_name="test"
+    )
+
+    print(
+        f"Test | "
+        f"loss: {test_loss:.4f} | "
+        f"acc: {test_acc:.4f} | "
+        f"f1_macro: {test_f1_macro:.4f}"
+    )
+
+    wandb.log({
+        "test/loss": test_loss,
+        "test/acc": test_acc,
+        "test/f1_macro": test_f1_macro,
+        "test/confusion_matrix": wandb.plot.confusion_matrix(
+            probs=None,
+            y_true=all_labels,
+            preds=all_preds,
+            class_names=CLASS_NAMES
+        )
+    })
+
+    csv_dir = Path.cwd() / "confusion_data"
+    csv_dir.mkdir(exist_ok=True)
+    csv_path = csv_dir / f"{run.name}_test.csv"
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["true_label", "predicted_label"])
+        writer.writerows([[t, p] for t, p in zip(all_labels, all_preds)])
+
+    artifact = wandb.Artifact(name=f"{run.name}_test_confusion", type="confusion_data")
+    artifact.add_file(str(csv_path))
+    wandb.log_artifact(artifact)
+
+    return {
+        "test_loss": test_loss,
+        "test_acc": test_acc,
+        "test_f1_macro": test_f1_macro,
+    }
