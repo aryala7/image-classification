@@ -135,10 +135,6 @@ def train(
             "val/acc": val_acc,
             "val/f1_macro": f1_macro,
             "scheduler/lr": optimizer.param_groups[0]["lr"],
-            "scheduler/beta1": optimizer.param_groups[0].get("betas", (0.0, 0.0))[0],
-            "scheduler/beta2": optimizer.param_groups[0].get("betas", (0.0, 0.0))[1],
-            "scheduler/momentum": optimizer.param_groups[0].get("momentum", 0.0),
-            "scheduler/weight_decay": optimizer.param_groups[0].get("weight_decay", 0.0),
         })
 
         # visual confusion matrix

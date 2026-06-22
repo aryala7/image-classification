@@ -13,6 +13,7 @@ load_dotenv()
 config = load_config()
 training_config = config["training"]
 data_config = config["data"]
+scheduler_config = config["scheduler"]
 
 NUM_CLASSES = training_config["num_classes"]
 BATCH_SIZE = training_config["batch_size"]
@@ -67,11 +68,11 @@ def train_all():
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",  # 'min' because we want to minimize validation loss
-            factor=0.5,  # Halving the LR on a plateau provides a noticeable adaptation
-            patience=3,  # Scale patience up to 3 because we step epochly (every N batches)
-            threshold=1e-4,  # Ignores minor noisy decimal shifts to guarantee meaningful progress
-            cooldown=2,  # Grace period of epochs to allow the training curve to stabilize
-            min_lr=1e-6,  # Absolute floor; dropping below 1e-6 yields diminishing returns
+            factor=scheduler_config["factor"],
+            patience=scheduler_config["patience"],
+            threshold=scheduler_config["threshold"],
+            cooldown=scheduler_config["cooldown"],
+            min_lr=scheduler_config["min_lr"],
         )
         engine.train(
             model=created_model,
