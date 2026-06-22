@@ -13,7 +13,7 @@ load_dotenv()
 config = load_config()
 training_config = config["training"]
 data_config = config["data"]
-scheduler_config = config["scheduler"]
+scheduler_config = config["training"]["scheduler"]
 
 NUM_CLASSES = training_config["num_classes"]
 BATCH_SIZE = training_config["batch_size"]

@@ -11,7 +11,7 @@ training:
   loss: "CrossEntropyLoss"
   scheduler:
     factor: 0.5 # Halving the LR on a plateau provides a noticeable adaptation
-    patience: 3 # Number of epochs without improvement, after which lr reduced
+    patience: 2 # Number of epochs without improvement, after which lr reduced
     threshold: 0.0001 # 1e-4 Ignores minor noisy decimal shifts to guarantee meaningful progress
     cooldown: 2 # Grace period of epochs to allow the training curve to stabilize
     min_lr: 0.000001 # 1e-6 Absolute floor; dropping below 1e-6 yields diminishing returns
