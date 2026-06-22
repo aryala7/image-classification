@@ -9,9 +9,7 @@ val_loader = ...  # Complete validation loader (used at end of epoch)
 proxy_val_loader = ...  # 5-10% stratified subset for fast sub-epoch checks
 
 # Standard evaluating performance in multi-class image classification
-criterion = (
-    nn.CrossEntropyLoss()
-)
+criterion = nn.CrossEntropyLoss()
 
 # Using AdamW optimizer with a baseline starting learning rate of 1e-3
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
@@ -28,12 +26,8 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 )
 
 # Cost-effective diagnostic & early stopping trackers
-CHECK_EVERY_N_BATCHES = (
-    500  # Evaluate loop frequently instead of waiting for full epoch hours
-)
-consecutive_lr_drops = (
-    0  # Counter tracking consecutive reductions without a breakthrough
-)
+CHECK_EVERY_N_BATCHES = 500  # Evaluate loop frequently instead of waiting for full epoch hours
+consecutive_lr_drops = 0  # Counter tracking consecutive reductions without a breakthrough
 epochs = 50
 
 for epoch in range(epochs):

@@ -64,7 +64,15 @@ def train_all():
 
         loss_fn = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
-
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",  # 'min' because we want to minimize validation loss
+            factor=0.5,  # Halving the LR on a plateau provides a noticeable adaptation
+            patience=3,  # Scale patience up to 3 because we step epochly (every N batches)
+            threshold=1e-4,  # Ignores minor noisy decimal shifts to guarantee meaningful progress
+            cooldown=2,  # Grace period of epochs to allow the training curve to stabilize
+            min_lr=1e-6,  # Absolute floor; dropping below 1e-6 yields diminishing returns
+        )
         engine.train(
             model=created_model,
             optimizer=optimizer,
@@ -73,7 +81,8 @@ def train_all():
             val_loader=val_loader,
             epochs=epochs,
             device=DEVICE,
-            run=run
+            run=run,
+            scheduler=scheduler
         )
 
         engine.test(

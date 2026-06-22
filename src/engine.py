@@ -16,7 +16,7 @@ def train_step(
         loss_fn: torch.nn.Module,
         data_loader: DataLoader,
         device: torch.device,
-        epoch: int
+        epoch: int,
 ) -> Tuple[float, float]:
     model.train()
     train_acc = 0
@@ -79,7 +79,8 @@ def train(
         val_loader: DataLoader,
         epochs: int,
         device: torch.device,
-        run: wandb.sdk.wandb_run.Run
+        run: wandb.sdk.wandb_run.Run,
+        scheduler: torch.optim.lr_scheduler.LRScheduler
 ):
     results = {
         "train_loss": [],
@@ -99,7 +100,7 @@ def train(
             loss_fn=loss_fn,
             data_loader=train_loader,
             device=device,
-            epoch=epoch + 1
+            epoch=epoch + 1,
         )
         val_loss, val_acc, f1_macro, all_preds, all_labels = eval_step(
             model=model,
@@ -108,6 +109,7 @@ def train(
             device=device,
             split_name=f"validation epoch {epoch + 1}"
         )
+        scheduler.step(val_loss)
 
         print(
             f"Epoch: {epoch + 1} | "
@@ -132,6 +134,11 @@ def train(
             "val/loss": val_loss,
             "val/acc": val_acc,
             "val/f1_macro": f1_macro,
+            "scheduler/lr": optimizer.param_groups[0]["lr"],
+            "scheduler/beta1": optimizer.param_groups[0].get("betas", (0.0, 0.0))[0],
+            "scheduler/beta2": optimizer.param_groups[0].get("betas", (0.0, 0.0))[1],
+            "scheduler/momentum": optimizer.param_groups[0].get("momentum", 0.0),
+            "scheduler/weight_decay": optimizer.param_groups[0].get("weight_decay", 0.0),
         })
 
         # visual confusion matrix
