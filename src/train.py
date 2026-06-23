@@ -64,7 +64,24 @@ def train_all():
         wandb.watch(created_model, log="all", log_freq=100)
 
         loss_fn = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
+        
+        backbone_params = []
+        head_params = []
+
+        for name, param in created_model.named_parameters():
+            if 'head' in name:
+                head_params.append(param)
+            else:
+                backbone_params.append(param)
+
+        optimizer = torch.optim.AdamW([
+            {'params': backbone_params, 'lr': LR * 1e-2}, # Smaller LR for pretrained blocks
+            {'params': head_params, 'lr': LR}      # Larger LR for the head
+        ], weight_decay=0.05)
+        # optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
+
+
+
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",  # 'min' because we want to minimize validation loss
@@ -74,6 +91,7 @@ def train_all():
             cooldown=scheduler_config["cooldown"],
             min_lr=scheduler_config["min_lr"],
         )
+
         engine.train(
             model=created_model,
             optimizer=optimizer,
