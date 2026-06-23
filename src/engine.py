@@ -112,7 +112,7 @@ def train(
         scheduler.step(val_loss)
 
         print(
-            f"Epoch: {epoch + 1} | "
+            f"\nEpoch: {epoch + 1} | "
             f"train_loss: {train_loss:.4f} | "
             f"train_acc: {train_acc:.4f} | "
             f"val_loss: {val_loss:.4f} | "
