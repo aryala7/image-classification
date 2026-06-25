@@ -4,7 +4,7 @@ import PIL.Image  # importing early to prevent unresolvable DLL issue with torch
 import torch
 import wandb
 from src import engine
-from src.models import MODELS
+from src.models import MODEL_REGISTRY, DEFAULT_MODEL_NAMES
 from src.data import create_training_dataloaders
 from src.utils import save_model, load_config
 from dotenv import load_dotenv
@@ -19,6 +19,7 @@ scheduler_config = config["training"]["scheduler"]
 NUM_CLASSES = training_config["num_classes"]
 BATCH_SIZE = training_config["batch_size"]
 LR = training_config["lr"]
+DEFAULT_EPOCHS = training_config["epochs"]
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else
     "mps" if torch.backends.mps.is_available() else
@@ -26,18 +27,46 @@ DEVICE = torch.device(
 )
 
 
-def train_all():
+def train_all(model_names=None, epochs=DEFAULT_EPOCHS, run_name=None):
+    """Train one or more registered models.
+
+    Args:
+        model_names: names to train (keys of MODEL_REGISTRY). Defaults to every
+            registered model.
+        epochs: epoch ceiling applied to each selected model.
+        run_name: optional W&B run name. When None, each run uses its model's
+            name; when training several models it is suffixed with the model
+            name to keep runs distinct.
+    """
+    if model_names is None:
+        model_names = DEFAULT_MODEL_NAMES
+
+    unknown = [name for name in model_names if name not in MODEL_REGISTRY]
+    if unknown:
+        raise ValueError(
+            f"Unknown model name(s): {unknown}. "
+            f"Available: {sorted(MODEL_REGISTRY)}"
+        )
+
     print(f"Using device: {DEVICE}")
-    for model_fn, epochs in MODELS:
-        print(f"Initializing model: {model_fn.__name__}")
+    for model_name in model_names:
+        model_fn = MODEL_REGISTRY[model_name]
+        print(f"Initializing model: {model_name}")
         created_model = model_fn(num_classes=NUM_CLASSES)
         created_model.to(DEVICE)
         print(f"Training model: {created_model.name}")
 
+        if run_name is None:
+            this_run_name = created_model.name
+        elif len(model_names) > 1:
+            this_run_name = f"{run_name}-{created_model.name}"
+        else:
+            this_run_name = run_name
+
         run = wandb.init(
             entity=training_config["wandb"]["entity"],
             project=training_config["wandb"]["project"],
-            name=created_model.name,
+            name=this_run_name,
             config={
                 "model": created_model.name,
                 "dataset": training_config["wandb"]["dataset"],
