@@ -16,7 +16,7 @@ def train_step(
         loss_fn: torch.nn.Module,
         data_loader: DataLoader,
         device: torch.device,
-        epoch: int
+        epoch: int,
 ) -> Tuple[float, float]:
     model.train()
     train_acc = 0
@@ -79,7 +79,8 @@ def train(
         val_loader: DataLoader,
         epochs: int,
         device: torch.device,
-        run: wandb.sdk.wandb_run.Run
+        run: wandb.sdk.wandb_run.Run,
+        scheduler: torch.optim.lr_scheduler.LRScheduler
 ):
     results = {
         "train_loss": [],
@@ -99,7 +100,7 @@ def train(
             loss_fn=loss_fn,
             data_loader=train_loader,
             device=device,
-            epoch=epoch + 1
+            epoch=epoch + 1,
         )
         val_loss, val_acc, f1_macro, all_preds, all_labels = eval_step(
             model=model,
@@ -108,9 +109,10 @@ def train(
             device=device,
             split_name=f"validation epoch {epoch + 1}"
         )
+        scheduler.step(val_loss)
 
         print(
-            f"Epoch: {epoch + 1} | "
+            f"\nEpoch: {epoch + 1} | "
             f"train_loss: {train_loss:.4f} | "
             f"train_acc: {train_acc:.4f} | "
             f"val_loss: {val_loss:.4f} | "
@@ -132,6 +134,8 @@ def train(
             "val/loss": val_loss,
             "val/acc": val_acc,
             "val/f1_macro": f1_macro,
+            "scheduler/head_lr": optimizer.param_groups[1]["lr"],
+            "scheduler/backbone_lr": optimizer.param_groups[0]["lr"],
         })
 
         # visual confusion matrix
