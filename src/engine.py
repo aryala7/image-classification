@@ -134,7 +134,8 @@ def train(
             "val/loss": val_loss,
             "val/acc": val_acc,
             "val/f1_macro": f1_macro,
-            "scheduler/lr": optimizer.param_groups[0]["lr"],
+            "scheduler/head_lr": optimizer.param_groups[1]["lr"],
+            "scheduler/backbone_lr": optimizer.param_groups[0]["lr"],
         })
 
         # visual confusion matrix
