@@ -1,5 +1,6 @@
 """Training entry point."""
 
+import PIL.Image  # importing early to prevent unresolvable DLL issue with torchvision
 import torch
 import wandb
 from src import engine
