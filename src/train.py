@@ -1,6 +1,7 @@
 """Training entry point."""
 
 import PIL.Image  # importing early to prevent unresolvable DLL issue with torchvision
+import re
 import torch
 import wandb
 from src import engine
@@ -26,17 +27,30 @@ DEVICE = torch.device(
     "cpu"
 )
 
+# wandb artifacts use run_name for artifact name and require specific characters only for the file name. _validate_run_name checks that.
+_VALID_RUN_NAME = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def _validate_run_name(name):
+    
+    if not isinstance(name, str) or not _VALID_RUN_NAME.fullmatch(name):
+        raise ValueError(
+            f"Invalid run name {name!r}: may only contain alphanumeric "
+            f"characters, dashes, underscores, and dots (no spaces)."
+        )
+
 
 def train_all(model_names=None, epochs=DEFAULT_EPOCHS, run_name=None):
-    """Train one or more registered models.
+    """ training logic for all models, argument agnostic. Defaults to every registered model, with default epochs and no run name.
 
     Args:
-        model_names: names to train (keys of MODEL_REGISTRY). Defaults to every
-            registered model.
-        epochs: epoch ceiling applied to each selected model.
-        run_name: optional W&B run name. When None, each run uses its model's
-            name; when training several models it is suffixed with the model
-            name to keep runs distinct.
+        model_names (list/str, optional): List of model names to train. Defaults to None -> every registered model.
+        epochs (int, optional): Epoch ceiling applied to each selected model. Defaults to DEFAULT_EPOCHS -> epochs in config.yaml.
+        run_name (str, optional): name of the run for wandb. Defaults to None -> model name
+    
+    Raises:
+        ValueError: If model_names contains unknown models.
+        ValueError: If run_name contains invalid characters.
     """
     if model_names is None:
         model_names = DEFAULT_MODEL_NAMES
