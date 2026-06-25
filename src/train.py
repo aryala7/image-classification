@@ -62,6 +62,9 @@ def train_all(model_names=None, epochs=DEFAULT_EPOCHS, run_name=None):
             f"Available: {sorted(MODEL_REGISTRY)}"
         )
 
+    if run_name is not None:
+        _validate_run_name(run_name)
+
     print(f"Using device: {DEVICE}")
     for model_name in model_names:
         model_fn = MODEL_REGISTRY[model_name]
@@ -156,10 +159,15 @@ def train_all(model_names=None, epochs=DEFAULT_EPOCHS, run_name=None):
             run=run
         )
 
+        # checks if run_name is provided and adds it to name of checkpoint file.
+        checkpoint_stem = created_model.name
+        if run_name is not None:
+            checkpoint_stem = f"{created_model.name}_{run_name}"
+
         save_model(
             model=created_model,
             target_dir="models",
-            model_name=f"{created_model.name}_{epochs}epochs.pth",
+            model_name=f"{checkpoint_stem}_{epochs}epochs.pth",
             log_artifact=True
         )
 
