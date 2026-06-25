@@ -1,7 +1,9 @@
-# Add pip-only dependencies here.
-# Conda-managed dependencies should go in environment.yml.
-torch
-torchvision
-torchaudio
-timm==1.0.27
+# Base (torch-agnostic) pip dependencies — installed for everyone by
+# `conda env create -f environment.yml`.
+#
+# torch / torchvision / timm are platform-specific and are NOT listed here
+# (timm would otherwise pull a CPU-only torch from PyPI). Install them on top
+# of the base env with one of:
+#   conda env update -f environment-cuda.yml   # NVIDIA GPU (CUDA 12.8)
+#   conda env update -f environment-cpu.yml    # CPU / Apple-Silicon (mps)
 safetensors

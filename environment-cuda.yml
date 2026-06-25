@@ -1,0 +1,8 @@
+# NVIDIA GPU torch stack (CUDA 12.8).
+# Apply ON TOP of the base env (do not use with `conda env create`):
+#   conda env create -f environment.yml      # once
+#   conda env update -f environment-cuda.yml # then this
+name: base-project
+dependencies:
+  - pip:
+      - -r requirements-cuda.txt

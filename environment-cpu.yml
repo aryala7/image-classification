@@ -1,0 +1,8 @@
+# CPU / Apple-Silicon (mps) torch stack.
+# Apply ON TOP of the base env (do not use with `conda env create`):
+#   conda env create -f environment.yml     # once
+#   conda env update -f environment-cpu.yml # then this
+name: base-project
+dependencies:
+  - pip:
+      - -r requirements-cpu.txt
