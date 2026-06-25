@@ -10,6 +10,12 @@ Create the environment:
 conda env create -f environment.yml
 ```
 
+Update the environment, **depending on cuda support**:
+
+```bash
+conda env update -f environment.<cuda/cpu>.yml
+```
+
 Activate it:
 
 ```bash
