@@ -15,6 +15,3 @@ MODEL_REGISTRY = {
     "convnext_tiny": convnext_tiny,
     "deit": deit,
 }
-
-# Default selection when train_all() is called without explicit model names.
-DEFAULT_MODEL_NAMES = list(MODEL_REGISTRY)
