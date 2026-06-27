@@ -126,6 +126,17 @@ def train(
         results["val_acc"].append(val_acc)
         results["f1_macro"].append(f1_macro)
 
+        # Consider optimizer with multiple parameter groups
+        if len(optimizer.param_groups) > 1:
+            scheduler_info = {
+                "scheduler/head_lr": optimizer.param_groups[1]["lr"],
+                "scheduler/backbone_lr": optimizer.param_groups[0]["lr"],
+            }
+        else:
+            scheduler_info = {
+                "scheduler/lr": optimizer.param_groups[0]["lr"],
+            }
+
         # epoch-level scalars
         wandb.log({
             "epoch": epoch,
@@ -134,8 +145,7 @@ def train(
             "val/loss": val_loss,
             "val/acc": val_acc,
             "val/f1_macro": f1_macro,
-            "scheduler/head_lr": optimizer.param_groups[1]["lr"],
-            "scheduler/backbone_lr": optimizer.param_groups[0]["lr"],
+            **scheduler_info
         })
 
         # visual confusion matrix
