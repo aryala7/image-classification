@@ -5,7 +5,7 @@ import re
 import torch
 import wandb
 from src import engine
-from src.models import MODELS
+from src.models import MODEL_REGISTRY
 from src.data import create_custom_test_dataloader, create_training_dataloaders
 from src.utils import save_model, load_config
 from dotenv import load_dotenv
