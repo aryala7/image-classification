@@ -5,7 +5,7 @@ import torch
 import wandb
 from src import engine
 from src.models import MODELS
-from src.data import create_training_dataloaders
+from src.data import create_custom_test_dataloader, create_training_dataloaders
 from src.utils import save_model, load_config
 from dotenv import load_dotenv
 
@@ -56,11 +56,17 @@ def train_all():
             batch_size=BATCH_SIZE,
             data_config=data_config,
         )
+        custom_test_loader = create_custom_test_dataloader(
+            transform=created_model.transforms,
+            batch_size=BATCH_SIZE,
+            data_config=data_config,
+        )
         print(
             f"Dataset sizes | "
             f"train: {len(train_loader.dataset)} | "
             f"validation: {len(val_loader.dataset)} | "
-            f"test: {len(test_loader.dataset)}"
+            f"test: {len(test_loader.dataset)} | "
+            f"custom_test: {len(custom_test_loader.dataset)}"
         )
         wandb.watch(created_model, log="all", log_freq=100)
 
@@ -110,7 +116,8 @@ def train_all():
             loss_fn=loss_fn,
             test_loader=test_loader,
             device=DEVICE,
-            run=run
+            run=run,
+            custom_test_loader=custom_test_loader,
         )
 
         save_model(

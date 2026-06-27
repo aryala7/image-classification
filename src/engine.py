@@ -167,50 +167,62 @@ def test(
         loss_fn: torch.nn.Module,
         test_loader: DataLoader,
         device: torch.device,
-        run: wandb.sdk.wandb_run.Run
+        run: wandb.sdk.wandb_run.Run,
+        custom_test_loader: DataLoader | None = None,
 ) -> dict:
-    """Evaluate the trained model once on the held-out test split."""
-    test_loss, test_acc, test_f1_macro, all_preds, all_labels = eval_step(
-        model=model,
-        loss_fn=loss_fn,
-        data_loader=test_loader,
-        device=device,
-        split_name="test"
-    )
+    """Evaluate the trained model on the held-out and optional custom test splits."""
 
-    print(
-        f"Test | "
-        f"loss: {test_loss:.4f} | "
-        f"acc: {test_acc:.4f} | "
-        f"f1_macro: {test_f1_macro:.4f}"
-    )
-
-    wandb.log({
-        "test/loss": test_loss,
-        "test/acc": test_acc,
-        "test/f1_macro": test_f1_macro,
-        "test/confusion_matrix": wandb.plot.confusion_matrix(
-            probs=None,
-            y_true=all_labels,
-            preds=all_preds,
-            class_names=CLASS_NAMES
+    def evaluate_loader(data_loader: DataLoader, split_name: str) -> dict:
+        test_loss, test_acc, test_f1_macro, all_preds, all_labels = eval_step(
+            model=model,
+            loss_fn=loss_fn,
+            data_loader=data_loader,
+            device=device,
+            split_name=split_name,
         )
-    })
 
-    csv_dir = Path.cwd() / "confusion_data"
-    csv_dir.mkdir(exist_ok=True)
-    csv_path = csv_dir / f"{run.name}_test.csv"
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["true_label", "predicted_label"])
-        writer.writerows([[t, p] for t, p in zip(all_labels, all_preds)])
+        print(
+            f"{split_name} | "
+            f"loss: {test_loss:.4f} | "
+            f"acc: {test_acc:.4f} | "
+            f"f1_macro: {test_f1_macro:.4f}"
+        )
 
-    artifact = wandb.Artifact(name=f"{run.name}_test_confusion", type="confusion_data")
-    artifact.add_file(str(csv_path))
-    wandb.log_artifact(artifact)
+        wandb.log({
+            f"{split_name}/loss": test_loss,
+            f"{split_name}/acc": test_acc,
+            f"{split_name}/f1_macro": test_f1_macro,
+            f"{split_name}/confusion_matrix": wandb.plot.confusion_matrix(
+                probs=None,
+                y_true=all_labels,
+                preds=all_preds,
+                class_names=CLASS_NAMES
+            )
+        })
 
-    return {
-        "test_loss": test_loss,
-        "test_acc": test_acc,
-        "test_f1_macro": test_f1_macro,
-    }
+        csv_dir = Path.cwd() / "confusion_data"
+        csv_dir.mkdir(exist_ok=True)
+        csv_path = csv_dir / f"{run.name}_{split_name}.csv"
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["true_label", "predicted_label"])
+            writer.writerows([[t, p] for t, p in zip(all_labels, all_preds)])
+
+        artifact = wandb.Artifact(
+            name=f"{run.name}_{split_name}_confusion",
+            type="confusion_data"
+        )
+        artifact.add_file(str(csv_path))
+        wandb.log_artifact(artifact)
+
+        return {
+            f"{split_name}_loss": test_loss,
+            f"{split_name}_acc": test_acc,
+            f"{split_name}_f1_macro": test_f1_macro,
+        }
+
+    results = evaluate_loader(test_loader, "test")
+    if custom_test_loader is not None:
+        results.update(evaluate_loader(custom_test_loader, "custom_test"))
+
+    return results
