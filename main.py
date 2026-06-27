@@ -4,6 +4,7 @@ import cmd
 from typing import Iterable, Optional
 
 from src.models import MODEL_REGISTRY
+
 # from src.utils import load_config, load_model_from_artifact, seed_everything
 
 
@@ -16,7 +17,9 @@ def _parse_model_selection(selection: str) -> list[str]:
     model_names = list(MODEL_REGISTRY.keys())
     selected_names: list[str] = []
     invalid_tokens: list[str] = []
-    for token in [token.strip() for token in selection.replace(",", " ").split() if token.strip()]:
+    for token in [
+        token.strip() for token in selection.replace(",", " ").split() if token.strip()
+    ]:
         if token.isdigit():
             index = int(token) - 1
             if 0 <= index < len(model_names):
@@ -42,7 +45,9 @@ def _prompt_models() -> list[str]:
     model_names = list(MODEL_REGISTRY.keys())
     print("Available models:")
     _print_options(model_names)
-    print("Enter one or more model numbers or names separated by commas. Example: '1,3' or 'resnet18, deit'")
+    print(
+        "Enter one or more model numbers or names separated by commas. Example: '1,3' or 'resnet18, deit'"
+    )
 
     while True:
         selection = input("Select models: ").strip()
@@ -59,19 +64,22 @@ def _prompt_models() -> list[str]:
 
 def test_model() -> None:
     from src.utils import load_model_from_artifact
+
     mlp_mixer_20 = load_model_from_artifact(
         model_fn=MODEL_REGISTRY.get("mlp_mixer"),
         artifact_path="trash-busters/mlp_mixer_20epochs.pth:latest",
     )
-    
 
 
 def train_model() -> None:
     # lazy import to avoid long startup time
     from src.train import train_all
     from src.utils import load_config, seed_everything
+
     # Ask for reproducibility
-    reproducibility = input("Do you want to ensure reproducibility? (y/n): ").strip().lower()
+    reproducibility = (
+        input("Do you want to ensure reproducibility? (y/n): ").strip().lower()
+    )
     if reproducibility == "y":
         # Set the seed for reproducibility
         config = load_config()
@@ -79,7 +87,7 @@ def train_model() -> None:
     # Select models to train
     selected_models = _prompt_models()
     # Train the selected models
-    train_all(model_names=selected_models, epochs=config["training"]["epochs"])  
+    train_all(model_names=selected_models, epochs=config["training"]["epochs"])
 
 
 class MainShell(cmd.Cmd):
@@ -92,15 +100,16 @@ class MainShell(cmd.Cmd):
 
     def do_train(self, arg: str) -> None:
         """Run the train action."""
-        if arg.strip():
-            try:
-                selected_models = _parse_model_selection(arg)
-            except ValueError as exc:
-                print(exc)
-                return
-            train_model(selected_models)
-        else:
-            train_model()
+        # if arg.strip():
+        #     try:
+        #         selected_models = _parse_model_selection(arg)
+        #     except ValueError as exc:
+        #         print(exc)
+        #         return
+        #     train_model(selected_models)
+        # else:
+        #     train_model()
+        train_model()
 
     def do_exit(self, arg: str) -> bool:
         """Exit the shell."""
@@ -115,4 +124,3 @@ class MainShell(cmd.Cmd):
 
 if __name__ == "__main__":
     MainShell().cmdloop()
-
