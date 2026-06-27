@@ -1,2 +1,0 @@
-"""Evaluation entry point."""
-
