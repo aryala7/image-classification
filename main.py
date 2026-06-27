@@ -1,8 +1,9 @@
 # Module for different entry functions to the models.
 
 import cmd
-from typing import Iterable, Optional
+from typing import Iterable
 
+from src.fine_tune import test_fine_tuned_model
 from src.models import MODEL_REGISTRY
 
 # from src.utils import load_config, load_model_from_artifact, seed_everything
@@ -60,15 +61,50 @@ def _prompt_models() -> list[str]:
         except ValueError as exc:
             print(exc)
             continue
+    
+
+def _prompt_test_model():
+    from src.fine_tune import get_fine_tuned_models
+
+    fine_tuned_models = get_fine_tuned_models()
+    if not fine_tuned_models:
+        print("No fine-tuned models found. Please train a model first.")
+        return None
+
+    print("Available fine-tuned models:")
+    _print_options(fine_tuned_models)
+
+    selection = input(
+        "Enter the number or name of the model to test: "
+    ).strip()
+
+    if not selection:
+        print("No model selected. Exiting test.")
+        return None
+
+    if selection.isdigit():
+        index = int(selection) - 1
+        if 0 <= index < len(fine_tuned_models):
+            selection = list(fine_tuned_models.keys())[index]
+        else:
+            print("Invalid model number. Exiting test.")
+            return None
+
+    return selection if selection in fine_tuned_models else None
 
 
 def test_model() -> None:
-    from src.utils import load_model_from_artifact
+    selected_model = _prompt_test_model()
+    if selected_model is None:
+        return
+    image_path = input("Enter the path to the test image: ").strip()
+    if image_path is None:
+        return
 
-    mlp_mixer_20 = load_model_from_artifact(
-        model_fn=MODEL_REGISTRY.get("mlp_mixer"),
-        artifact_path="trash-busters/mlp_mixer_20epochs.pth:latest",
-    )
+    _, label = test_fine_tuned_model(selected_model, image_path)
+    
+    print(f"Predicted label for the provided image: {label}")
+    return
 
 
 def train_model() -> None:
