@@ -1,6 +1,7 @@
 """Training entry point."""
 
 import PIL.Image  # importing early to prevent unresolvable DLL issue with torchvision
+import re
 import torch
 import wandb
 from src import engine
@@ -19,25 +20,71 @@ scheduler_config = config["training"]["scheduler"]
 NUM_CLASSES = training_config["num_classes"]
 BATCH_SIZE = training_config["batch_size"]
 LR = training_config["lr"]
+DEFAULT_EPOCHS = training_config["epochs"]
 DEVICE = torch.device(
-    "cuda" if torch.cuda.is_available() else
-    "mps" if torch.backends.mps.is_available() else
-    "cpu"
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available() else "cpu"
 )
 
+# wandb artifacts use run_name for artifact name and require specific characters only for the file name. _validate_run_name checks that.
+_VALID_RUN_NAME = re.compile(r"[A-Za-z0-9._-]+")
 
-def train_all():
+
+def _validate_run_name(name):
+
+    if not isinstance(name, str) or not _VALID_RUN_NAME.fullmatch(name):
+        raise ValueError(
+            f"Invalid run name {name!r}: may only contain alphanumeric "
+            f"characters, dashes, underscores, and dots (no spaces)."
+        )
+
+
+def train_all(
+    model_names: list[str] = list(MODEL_REGISTRY.keys()),
+    epochs: int = DEFAULT_EPOCHS,
+    run_name: str = None,
+):
+    """training logic for all models, argument agnostic. Defaults to every registered model, with default epochs and no run name.
+
+    Args:
+        model_names (list/str, optional): List of model names to train. Defaults to None -> every registered model.
+        epochs (int, optional): Epoch ceiling applied to each selected model. Defaults to DEFAULT_EPOCHS -> epochs in config.yaml.
+        run_name (str, optional): name of the run for wandb. Defaults to None -> model name
+
+    Raises:
+        ValueError: If model_names contains unknown models.
+        ValueError: If run_name contains invalid characters.
+    """
+
+    unknown = [name for name in model_names if name not in MODEL_REGISTRY]
+    if unknown:
+        raise ValueError(
+            f"Unknown model name(s): {unknown}. " f"Available: {sorted(MODEL_REGISTRY)}"
+        )
+
+    if run_name is not None:
+        _validate_run_name(run_name)
+
     print(f"Using device: {DEVICE}")
-    for model_fn, epochs in MODELS:
-        print(f"Initializing model: {model_fn.__name__}")
+    for model_name in model_names:
+        model_fn = MODEL_REGISTRY[model_name]
+        print(f"Initializing model: {model_name}")
         created_model = model_fn(num_classes=NUM_CLASSES)
         created_model.to(DEVICE)
         print(f"Training model: {created_model.name}")
 
+        if run_name is None:
+            this_run_name = created_model.name
+        elif len(model_names) > 1:
+            this_run_name = f"{run_name}-{created_model.name}"
+        else:
+            this_run_name = run_name
+
         run = wandb.init(
             entity=training_config["wandb"]["entity"],
             project=training_config["wandb"]["project"],
-            name=created_model.name,
+            name=this_run_name,
             config={
                 "model": created_model.name,
                 "dataset": training_config["wandb"]["dataset"],
@@ -48,7 +95,7 @@ def train_all():
                 "optimizer": training_config["optimizer"],
                 "loss": training_config["loss"],
                 "device": str(DEVICE),
-            }
+            },
         )
 
         train_loader, val_loader, test_loader = create_training_dataloaders(
@@ -71,23 +118,27 @@ def train_all():
         wandb.watch(created_model, log="all", log_freq=100)
 
         loss_fn = torch.nn.CrossEntropyLoss()
-        
+
         backbone_params = []
         head_params = []
 
         for name, param in created_model.named_parameters():
-            if 'head' in name:
+            if "head" in name:
                 head_params.append(param)
             else:
                 backbone_params.append(param)
 
-        optimizer = torch.optim.AdamW([
-            {'params': backbone_params, 'lr': LR * 1e-2}, # Smaller LR for pretrained blocks
-            {'params': head_params, 'lr': LR}      # Larger LR for the head
-        ], weight_decay=0.05)
+        optimizer = torch.optim.AdamW(
+            [
+                {
+                    "params": backbone_params,
+                    "lr": LR * 1e-2,
+                },  # Smaller LR for pretrained blocks
+                {"params": head_params, "lr": LR},  # Larger LR for the head
+            ],
+            weight_decay=0.05,
+        )
         # optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
-
-
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
@@ -108,7 +159,7 @@ def train_all():
             epochs=epochs,
             device=DEVICE,
             run=run,
-            scheduler=scheduler
+            scheduler=scheduler,
         )
 
         engine.test(
@@ -120,11 +171,16 @@ def train_all():
             custom_test_loader=custom_test_loader,
         )
 
+        # checks if run_name is provided and adds it to name of checkpoint file.
+        checkpoint_stem = created_model.name
+        if run_name is not None:
+            checkpoint_stem = f"{created_model.name}_{run_name}"
+
         save_model(
             model=created_model,
             target_dir="models",
-            model_name=f"{created_model.name}_{epochs}epochs.pth",
-            log_artifact=True
+            model_name=f"{checkpoint_stem}_{epochs}epochs.pth",
+            log_artifact=True,
         )
 
         run.finish()
