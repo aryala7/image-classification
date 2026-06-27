@@ -10,6 +10,12 @@ from sklearn.metrics import f1_score
 CLASS_NAMES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
 
 
+def topk_accuracy(y_pred: torch.Tensor, y: torch.Tensor, k: int = 2) -> float:
+    topk_preds = torch.topk(y_pred, k, dim=1).indices
+    correct = topk_preds.eq(y.unsqueeze(1)).any(dim=1).sum().item()
+    return correct / y.size(0)
+
+
 def train_step(
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
@@ -47,9 +53,9 @@ def eval_step(
         data_loader: DataLoader,
         device: torch.device,
         split_name: str = "eval"
-) -> Tuple[float, float, float, list, list]:
+) -> Tuple[float, float, float, float, list, list]:
     model.eval()
-    test_loss, test_acc = 0, 0
+    test_loss, test_acc, test_top2_acc = 0, 0, 0
     all_preds = []
     all_labels = []
     with torch.inference_mode():
@@ -61,14 +67,16 @@ def eval_step(
             test_loss += loss.item()
             y_pred_class = y_pred.argmax(dim=1)
             test_acc += (y_pred_class == y).sum().item()
+            test_top2_acc += topk_accuracy(y_pred, y, k=2) * y.size(0)
             all_preds.extend(y_pred_class.cpu().numpy())
             all_labels.extend(y.cpu().numpy())
             progress.set_postfix(loss=f"{loss.item():.4f}")
 
     test_loss = test_loss / len(data_loader)
     test_acc = test_acc / len(data_loader.dataset)
+    test_top2_acc = test_top2_acc / len(data_loader.dataset)
     final_f1 = f1_score(all_labels, all_preds, average="macro")
-    return test_loss, test_acc, final_f1, all_preds, all_labels
+    return test_loss, test_acc, test_top2_acc, final_f1, all_preds, all_labels
 
 
 def train(
@@ -87,6 +95,7 @@ def train(
         "train_acc": [],
         "val_loss": [],
         "val_acc": [],
+        "val_top2_acc": [],
         "f1_macro": []
     }
 
@@ -102,7 +111,7 @@ def train(
             device=device,
             epoch=epoch + 1,
         )
-        val_loss, val_acc, f1_macro, all_preds, all_labels = eval_step(
+        val_loss, val_acc, val_top2_acc, f1_macro, all_preds, all_labels = eval_step(
             model=model,
             loss_fn=loss_fn,
             data_loader=val_loader,
@@ -117,6 +126,7 @@ def train(
             f"train_acc: {train_acc:.4f} | "
             f"val_loss: {val_loss:.4f} | "
             f"val_acc: {val_acc:.4f} | "
+            f"val_top2_acc: {val_top2_acc:.4f} | "
             f"f1_macro: {f1_macro:.4f}"
         )
 
@@ -125,6 +135,7 @@ def train(
         results["val_loss"].append(val_loss)
         results["val_acc"].append(val_acc)
         results["f1_macro"].append(f1_macro)
+        results["val_top2_acc"].append(val_top2_acc)
 
         # Consider optimizer with multiple parameter groups
         if len(optimizer.param_groups) > 1:
@@ -144,6 +155,7 @@ def train(
             "train/acc": train_acc,
             "val/loss": val_loss,
             "val/acc": val_acc,
+            "val/top2_acc": val_top2_acc,
             "val/f1_macro": f1_macro,
             **scheduler_info
         })
@@ -183,7 +195,7 @@ def test(
     """Evaluate the trained model on the held-out and optional custom test splits."""
 
     def evaluate_loader(data_loader: DataLoader, split_name: str) -> dict:
-        test_loss, test_acc, test_f1_macro, all_preds, all_labels = eval_step(
+        test_loss, test_acc, test_top2_acc, test_f1_macro, all_preds, all_labels = eval_step(
             model=model,
             loss_fn=loss_fn,
             data_loader=data_loader,
@@ -195,12 +207,14 @@ def test(
             f"{split_name} | "
             f"loss: {test_loss:.4f} | "
             f"acc: {test_acc:.4f} | "
+            f"top2_acc: {test_top2_acc:.4f} | "
             f"f1_macro: {test_f1_macro:.4f}"
         )
 
         wandb.log({
             f"{split_name}/loss": test_loss,
             f"{split_name}/acc": test_acc,
+            f"{split_name}/top2_acc": test_top2_acc,
             f"{split_name}/f1_macro": test_f1_macro,
             f"{split_name}/confusion_matrix": wandb.plot.confusion_matrix(
                 probs=None,
@@ -228,6 +242,7 @@ def test(
         return {
             f"{split_name}_loss": test_loss,
             f"{split_name}_acc": test_acc,
+            f"{split_name}_top2_acc": test_top2_acc,
             f"{split_name}_f1_macro": test_f1_macro,
         }
 
