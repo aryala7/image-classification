@@ -4,6 +4,7 @@ __pycache__/
 .env
 .venv/
 venv/
+.vscode/
 
 data/raw/
 data/processed/
@@ -18,3 +19,4 @@ reports/
 confusion_data/
 wandb/
 docs/
+gradcam_outputs/
