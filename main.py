@@ -61,7 +61,7 @@ def _prompt_models() -> list[str]:
         except ValueError as exc:
             print(exc)
             continue
-    
+
 
 def _prompt_test_model():
     from src.fine_tune import get_fine_tuned_models
@@ -74,9 +74,7 @@ def _prompt_test_model():
     print("Available fine-tuned models:")
     _print_options(fine_tuned_models)
 
-    selection = input(
-        "Enter the number or name of the model to test: "
-    ).strip()
+    selection = input("Enter the number or name of the model to test: ").strip()
 
     if not selection:
         print("No model selected. Exiting test.")
@@ -102,8 +100,51 @@ def test_model() -> None:
         return
 
     _, label = test_fine_tuned_model(selected_model, image_path)
-    
+
     print(f"Predicted label for the provided image: {label}")
+    return
+
+
+def do_test_custom() -> None:
+    from src.fine_tune import get_fine_tuned_models
+    from src.train import DEVICE
+    from src.data import create_custom_test_dataloader
+    from src.utils import load_config
+    from src import engine
+    import torch
+
+    selected_model = _prompt_test_model()
+    if selected_model is None:
+        return
+
+    fine_tuned_models = get_fine_tuned_models()
+    model = fine_tuned_models.get(selected_model)
+    if model is None:
+        print(f"Model '{selected_model}' not found among fine-tuned models.")
+        return
+
+    config = load_config()
+    custom_test_loader = create_custom_test_dataloader(
+        transform=model.transforms,
+        batch_size=config["training"]["batch_size"],
+        data_config=config["data"],
+    )
+
+    loss_fn = torch.nn.CrossEntropyLoss()
+    custom_loss, custom_acc, custom_top2_acc, custom_f1_macro, _, _ = engine.eval_step(
+        model=model,
+        loss_fn=loss_fn,
+        data_loader=custom_test_loader,
+        device=DEVICE,
+        split_name="custom_test",
+    )
+
+    print(
+        f"custom_test | loss: {custom_loss:.4f} | "
+        f"acc: {custom_acc:.4f} | "
+        f"top2_acc: {custom_top2_acc:.4f} | "
+        f"f1_macro: {custom_f1_macro:.4f}"
+    )
     return
 
 
@@ -133,6 +174,10 @@ class MainShell(cmd.Cmd):
     def do_test(self, arg: str) -> None:
         """Run the test action."""
         test_model()
+
+    def do_test_custom(self, arg: str) -> None:
+        """Run model evaluation on the custom dataset only."""
+        do_test_custom()
 
     def do_train(self, arg: str) -> None:
         """Run the train action."""
