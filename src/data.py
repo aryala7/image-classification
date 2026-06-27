@@ -9,9 +9,11 @@ from torchvision import transforms
 from datasets import load_dataset
 
 HF_REPO_ID = "TrashBusters/combined"
+CUSTOM_TEST_REPO_ID = "TrashBusters/wild-trash-inference-dataset"
 TRAIN_SPLIT = "train"
 VALIDATION_SPLIT = "validation"
 TEST_SPLIT = "test"
+CUSTOM_TEST_SPLIT = "inference"
 
 
 def prepare_rgb_image(image: Image.Image) -> Image.Image:
@@ -108,3 +110,24 @@ def create_training_dataloaders(
     )
 
     return train_loader, validation_loader, test_loader
+
+
+def create_custom_test_dataloader(
+    transform: transforms.Compose,
+    batch_size: int,
+    data_config: dict,
+) -> DataLoader:
+    """Create a DataLoader for the custom wild-trash inference dataset."""
+    num_workers = data_config.get("num_workers", 0)
+
+    print(f"Loading Hugging Face Hub dataset {CUSTOM_TEST_REPO_ID}...")
+    dataset = load_dataset(CUSTOM_TEST_REPO_ID, split=CUSTOM_TEST_SPLIT)
+    print(f"Using Hugging Face Hub dataset {CUSTOM_TEST_REPO_ID}")
+
+    return create_data_loader(
+        dataset=dataset,
+        transform=transform,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+    )
