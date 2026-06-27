@@ -119,26 +119,29 @@ def train_all(
 
         loss_fn = torch.nn.CrossEntropyLoss()
 
-        backbone_params = []
-        head_params = []
+        if model_name == "resnet18":
+            # Use standard AdamW
+            optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
+        else:
+            backbone_params = []
+            head_params = []
 
-        for name, param in created_model.named_parameters():
-            if "head" in name:
-                head_params.append(param)
-            else:
-                backbone_params.append(param)
-
-        optimizer = torch.optim.AdamW(
-            [
-                {
-                    "params": backbone_params,
-                    "lr": LR * 1e-2,
-                },  # Smaller LR for pretrained blocks
-                {"params": head_params, "lr": LR},  # Larger LR for the head
-            ],
-            weight_decay=0.05,
-        )
-        # optimizer = torch.optim.AdamW(params=created_model.parameters(), lr=LR)
+            for name, param in created_model.named_parameters():
+                if "head" in name:
+                    head_params.append(param)
+                else:
+                    backbone_params.append(param)
+            # Use different learning rates for backbone and head on fine tuning models
+            optimizer = torch.optim.AdamW(
+                [
+                    {
+                        "params": backbone_params,
+                        "lr": LR * 1e-2,
+                    },  # Smaller LR for pretrained blocks
+                    {"params": head_params, "lr": LR},  # Larger LR for the head
+                ],
+                weight_decay=0.05,
+            )
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,

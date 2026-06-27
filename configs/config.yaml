@@ -1,4 +1,10 @@
 # Project configuration
+project:
+  name: "TrashBusters"
+  description: "A project for classifying waste types using deep learning."
+  version: "1.0.0"
+  random_seed: 42
+
 data:
   repo_id: "TrashBusters/combined"
   num_workers: 0
@@ -7,7 +13,7 @@ training:
   num_classes: 6
   batch_size: 32
   lr: 0.0001
-  epochs: 10 # Default epoch ceiling per model; override per call via train_all(epochs=...)
+  epochs: 20 # Default epoch ceiling per model; override per call via train_all(epochs=...)
   optimizer: "AdamW"
   loss: "CrossEntropyLoss"
   scheduler:
