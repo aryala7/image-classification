@@ -1,4 +1,4 @@
-"""Grad-CAM utilities for CNN-based waste classifiers."""
+"""XAI utilities for waste classifiers."""
 
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from matplotlib import colormaps
 from PIL import Image
 from torch import nn
 from torch.nn import functional as F
+from captum.attr import Occlusion as CaptumOcclusion
 
 
 def find_last_conv_layer(model: nn.Module) -> nn.Module:
@@ -71,7 +72,7 @@ class GradCAM:
         # Sum the weighted maps.
         cam = (weights * self.activations).sum(dim=1, keepdim=True)
         cam = F.relu(cam)
-        #Resize the heatmap to the original image size.-
+        # Resize the heatmap to the original image size.
         cam = F.interpolate(
             cam,
             size=input_tensor.shape[-2:],
@@ -110,6 +111,92 @@ def overlay_heatmap(
 
 
 def save_grad_cam(
+    image: Image.Image,
+    heatmap: np.ndarray,
+    output_path: Path,
+    alpha: float = 0.45,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    overlay = overlay_heatmap(image=image, heatmap=heatmap, alpha=alpha)
+    overlay.save(output_path)
+
+
+def _normalize_heatmap(heatmap: np.ndarray) -> np.ndarray:
+    heatmap = heatmap.astype(np.float32)
+    heatmap = heatmap - heatmap.min()
+    max_value = heatmap.max()
+    if max_value > 0:
+        heatmap = heatmap / max_value
+
+    return heatmap
+
+
+def attribution_to_heatmap(
+    attribution: torch.Tensor,
+    positive_only: bool = True,
+) -> np.ndarray:
+    """Convert a 3-channel attribution tensor into a normalized 2D heatmap."""
+    if attribution.ndim == 4:
+        attribution = attribution.squeeze(0)
+
+    if positive_only:
+        attribution = attribution.clamp(min=0)
+    else:
+        attribution = attribution.abs()
+
+    heatmap = attribution.detach().mean(dim=0).cpu().numpy()
+    return _normalize_heatmap(heatmap)
+
+
+class OcclusionAttribution:
+    """Compute Captum patch-occlusion attributions for any image classifier."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        patch_size: int = 32,
+        stride: int = 16,
+        baseline: float = 0.0,
+    ):
+        self.model = model
+        self.patch_size = patch_size
+        self.stride = stride
+        self.baseline = baseline
+        self._captum_occlusion = CaptumOcclusion(model)
+
+    def __call__(
+        self,
+        input_tensor: torch.Tensor,
+        target_class: int | None = None,
+    ) -> tuple[np.ndarray, int, int, float]:
+        self.model.eval()
+
+        with torch.no_grad():
+            logits = self.model(input_tensor)
+            probabilities = torch.softmax(logits, dim=1)
+            predicted_class = int(logits.argmax(dim=1).item())
+
+        if target_class is None:
+            target_class = predicted_class
+
+        attribution = self._captum_occlusion.attribute(
+            input_tensor,
+            target=target_class,
+            sliding_window_shapes=(
+                input_tensor.shape[1],
+                self.patch_size,
+                self.patch_size,
+            ),
+            strides=(input_tensor.shape[1], self.stride, self.stride),
+            baselines=self.baseline,
+        )
+        heatmap = attribution_to_heatmap(attribution, positive_only=True)
+
+        confidence = float(probabilities[:, target_class].item())
+        return heatmap, predicted_class, target_class, confidence
+
+
+def save_occlusion(
     image: Image.Image,
     heatmap: np.ndarray,
     output_path: Path,

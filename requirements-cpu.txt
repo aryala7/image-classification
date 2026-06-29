@@ -4,3 +4,4 @@ torch
 torchvision
 timm==1.0.27 # lives here because it would otherwise pull a CPU-only torch from PyPI
 safetensors
+captum
