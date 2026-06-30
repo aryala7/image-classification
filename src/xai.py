@@ -12,7 +12,19 @@ from captum.attr import Occlusion as CaptumOcclusion
 
 
 def find_last_conv_layer(model: nn.Module) -> nn.Module:
-    """Return the last Conv2d layer in a model."""
+    """Return the target layer for Grad-CAM.
+
+    For ConvNeXt models, use the last block in the final stage.
+    Otherwise fall back to the last Conv2d layer.
+    """
+    if hasattr(model, "stages"):
+        try:
+            last_block = model.stages[-1].blocks[-1]
+            if isinstance(last_block, nn.Module):
+                return last_block
+        except Exception:
+            pass
+
     last_conv_layer = None
     for module in model.modules():
         if isinstance(module, nn.Conv2d):
