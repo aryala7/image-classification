@@ -21,4 +21,4 @@ wandb/
 docs/
 gradcam_outputs/
 
-notebooks/
+notebooks/artifacts
