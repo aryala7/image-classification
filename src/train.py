@@ -44,6 +44,10 @@ def train_all(
     model_names: list[str] = list(MODEL_REGISTRY.keys()),
     epochs: int = DEFAULT_EPOCHS,
     run_name: str = None,
+    num_classes: int = NUM_CLASSES,
+    exclude_classes: list[str] | None = None,
+    class_names: list[str] | None = None,
+    dataset_tag: str | None = None,
 ):
     """training logic for all models, argument agnostic. Defaults to every registered model, with default epochs and no run name.
 
@@ -51,6 +55,10 @@ def train_all(
         model_names (list/str, optional): List of model names to train. Defaults to None -> every registered model.
         epochs (int, optional): Epoch ceiling applied to each selected model. Defaults to DEFAULT_EPOCHS -> epochs in config.yaml.
         run_name (str, optional): name of the run for wandb. Defaults to None -> model name
+        num_classes (int, optional): Size of the classification head. Defaults to config value.
+        exclude_classes (list[str], optional): Class names to drop from every split (train/val/test and the custom eval). Defaults to None -> keep all classes.
+        class_names (list[str], optional): Ordered class names used for confusion-matrix labelling. Defaults to None -> engine.CLASS_NAMES.
+        dataset_tag (str, optional): Overrides the wandb ``dataset`` config label. Defaults to None -> config value.
 
     Raises:
         ValueError: If model_names contains unknown models.
@@ -70,7 +78,7 @@ def train_all(
     for model_name in model_names:
         model_fn = MODEL_REGISTRY[model_name]
         print(f"Initializing model: {model_name}")
-        created_model = model_fn(num_classes=NUM_CLASSES)
+        created_model = model_fn(num_classes=num_classes)
         created_model.to(DEVICE)
         print(f"Training model: {created_model.name}")
 
@@ -87,8 +95,8 @@ def train_all(
             name=this_run_name,
             config={
                 "model": created_model.name,
-                "dataset": training_config["wandb"]["dataset"],
-                "num_classes": NUM_CLASSES,
+                "dataset": dataset_tag or training_config["wandb"]["dataset"],
+                "num_classes": num_classes,
                 "epochs": epochs,
                 "batch_size": BATCH_SIZE,
                 "lr": LR,
@@ -102,11 +110,13 @@ def train_all(
             transform=created_model.transforms,
             batch_size=BATCH_SIZE,
             data_config=data_config,
+            exclude_classes=exclude_classes,
         )
         custom_test_loader = create_custom_test_dataloader(
             transform=created_model.transforms,
             batch_size=BATCH_SIZE,
             data_config=data_config,
+            exclude_classes=exclude_classes,
         )
         print(
             f"Dataset sizes | "
@@ -163,6 +173,7 @@ def train_all(
             device=DEVICE,
             run=run,
             scheduler=scheduler,
+            class_names=class_names,
         )
 
         engine.test(
@@ -172,6 +183,7 @@ def train_all(
             device=DEVICE,
             run=run,
             custom_test_loader=custom_test_loader,
+            class_names=class_names,
         )
 
         # checks if run_name is provided and adds it to name of checkpoint file.

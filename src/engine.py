@@ -88,8 +88,10 @@ def train(
         epochs: int,
         device: torch.device,
         run: wandb.sdk.wandb_run.Run,
-        scheduler: torch.optim.lr_scheduler.LRScheduler
+        scheduler: torch.optim.lr_scheduler.LRScheduler,
+        class_names: list[str] | None = None,
 ):
+    names = class_names if class_names is not None else CLASS_NAMES
     results = {
         "train_loss": [],
         "train_acc": [],
@@ -166,7 +168,7 @@ def train(
                 probs=None,
                 y_true=all_labels,
                 preds=all_preds,
-                class_names=CLASS_NAMES
+                class_names=names
             )
         })
 
@@ -191,8 +193,10 @@ def test(
         device: torch.device,
         run: wandb.sdk.wandb_run.Run,
         custom_test_loader: DataLoader | None = None,
+        class_names: list[str] | None = None,
 ) -> dict:
     """Evaluate the trained model on the held-out and optional custom test splits."""
+    names = class_names if class_names is not None else CLASS_NAMES
 
     def evaluate_loader(data_loader: DataLoader, split_name: str) -> dict:
         test_loss, test_acc, test_top2_acc, test_f1_macro, all_preds, all_labels = eval_step(
@@ -220,7 +224,7 @@ def test(
                 probs=None,
                 y_true=all_labels,
                 preds=all_preds,
-                class_names=CLASS_NAMES
+                class_names=names
             )
         })
 

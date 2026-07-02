@@ -66,10 +66,60 @@ def create_data_loader(
     )
 
 
+def _resolve_exclude_ids(dataset_split, exclude_classes) -> set:
+    """Map class names to their integer label ids for a given split.
+
+    Prefers the split's ClassLabel feature (str2int); falls back to the
+    canonical ordering in ``engine.CLASS_NAMES`` (shared across the combined
+    and custom datasets) when the feature is not a ClassLabel.
+    """
+    feature = dataset_split.features.get("label")
+    exclude_ids: set = set()
+    for name in exclude_classes:
+        resolved = None
+        if hasattr(feature, "str2int"):
+            try:
+                resolved = feature.str2int(name)
+            except (KeyError, ValueError):
+                resolved = None
+        if resolved is None:
+            from src.engine import CLASS_NAMES
+
+            if name in CLASS_NAMES:
+                resolved = CLASS_NAMES.index(name)
+        if resolved is not None:
+            exclude_ids.add(resolved)
+    return exclude_ids
+
+
+def _filter_out_classes(dataset, reference_split, exclude_classes):
+    """Return ``dataset`` with all rows whose label is in ``exclude_classes``
+    removed. Works on a single split or a DatasetDict. No-op when nothing
+    resolves. ``reference_split`` supplies the ClassLabel mapping."""
+    if not exclude_classes:
+        return dataset
+
+    exclude_ids = _resolve_exclude_ids(reference_split, exclude_classes)
+    if not exclude_ids:
+        print(
+            f"[data] Warning: could not resolve classes {exclude_classes} to label "
+            f"ids; no rows excluded."
+        )
+        return dataset
+
+    filtered = dataset.filter(lambda example: example["label"] not in exclude_ids)
+    print(
+        f"[data] Excluded classes {list(exclude_classes)} "
+        f"(label ids {sorted(exclude_ids)})."
+    )
+    return filtered
+
+
 def create_training_dataloaders(
     transform: transforms.Compose,
     batch_size: int,
     data_config: dict,
+    exclude_classes: list[str] | None = None,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
 
     repo_id = data_config.get("repo_id", HF_REPO_ID)
@@ -85,6 +135,8 @@ def create_training_dataloaders(
             f"Missing Hugging Face split(s): {sorted(missing_splits)}. "
             f"Available splits: [{available_splits}]"
         )
+
+    dataset = _filter_out_classes(dataset, dataset[TRAIN_SPLIT], exclude_classes)
 
     print(f"Using Hugging Face Hub dataset {repo_id}")
     train_loader = create_data_loader(
@@ -116,12 +168,14 @@ def create_custom_test_dataloader(
     transform: transforms.Compose,
     batch_size: int,
     data_config: dict,
+    exclude_classes: list[str] | None = None,
 ) -> DataLoader:
     """Create a DataLoader for the custom wild-trash inference dataset."""
     num_workers = data_config.get("num_workers", 0)
 
     print(f"Loading Hugging Face Hub dataset {CUSTOM_TEST_REPO_ID}...")
     dataset = load_dataset(CUSTOM_TEST_REPO_ID, split=CUSTOM_TEST_SPLIT)
+    dataset = _filter_out_classes(dataset, dataset, exclude_classes)
     print(f"Using Hugging Face Hub dataset {CUSTOM_TEST_REPO_ID}")
 
     return create_data_loader(
