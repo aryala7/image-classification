@@ -22,3 +22,4 @@ docs/
 gradcam_outputs/
 
 notebooks/artifacts
+notebooks/figures
