@@ -4,8 +4,9 @@ Config constants + pure functions so the two notebooks stay thin and consistent.
 Everything here reads ONLY from logged wandb artifacts (run summaries, epoch
 history, and the per-sample confusion CSVs) -- no re-training, no re-inference.
 
-Metrics that need per-sample probabilities (AUROC, ECE) are intentionally absent:
-only argmax predictions were logged, so they require a separate re-inference pass.
+Hard-label metrics come from the confusion artifacts of the "core" runs. AUROC and
+ECE need per-sample probabilities, which live in the separate "softmax" runs
+produced by scripts/log_prob_metrics.py; see build_probability_metrics().
 """
 from __future__ import annotations
 
@@ -23,12 +24,15 @@ from sklearn.metrics import (
     balanced_accuracy_score,
     matthews_corrcoef,
     confusion_matrix,
+    roc_auc_score,
 )
+from sklearn.preprocessing import label_binarize
 
 # --------------------------------------------------------------------- config
 ENTITY = "trash-busters"
 PROJECT = "trash-busters"
 RUN_TAG = "core"  # only pull runs with this tag; set None for all runs
+PROB_TAG = "softmax"  # separate runs holding per-sample probability artifacts
 
 CLASS_NAMES_FULL = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
 
@@ -47,6 +51,17 @@ METRIC_LABELS = {
     "mcc": "MCC",
 }
 SPLIT_COLORS = {NORMAL_SPLIT: "#2b8cbe", SHIFT_SPLIT: "#e34a33"}
+
+# Per-model plot colours. Paste the hex wandb shows for each run so the notebook
+# plots match the wandb UI. Leave a model as None to fall back to a stable
+# default colour (still consistent for that model across every plot).
+MODEL_COLORS: dict = {
+    "baseline": "#a1a9ad",
+    "mlp_mixer": "#fb8332",
+    "convnext_tiny": "#5656e6",
+    "deit": "#ef3435",
+}
+_MODEL_ORDER = ["baseline", "mlp_mixer", "convnext_tiny", "deit"]
 
 HISTORY_KEYS = ["epoch", "train/loss", "train/acc", "val/loss", "val/acc", "val/f1_macro"]
 
@@ -259,6 +274,24 @@ def gap_table(metrics_long: pd.DataFrame, metric: str) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------- plot helper
+def model_palette(models) -> list:
+    """Colour list aligned to `models`.
+
+    Uses MODEL_COLORS where set, else a stable per-model fallback -- so a given
+    model gets the same colour in every plot, whether or not you've filled in the
+    wandb hex values yet.
+    """
+    cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    colours = []
+    for m in models:
+        colour = MODEL_COLORS.get(m)
+        if not colour:
+            i = _MODEL_ORDER.index(m) if m in _MODEL_ORDER else abs(hash(m))
+            colour = cycle[i % len(cycle)]
+        colours.append(colour)
+    return colours
+
+
 def plot_confusion(cm, class_names, title, ax):
     """Row-normalised confusion heatmap (diagonal = per-class recall)."""
     cmn = cm.astype(float)
@@ -280,3 +313,110 @@ def plot_confusion(cm, class_names, title, ax):
                 fontsize=7, color="white" if cmn[i, j] > 0.5 else "black",
             )
     return im
+
+
+# ------------------------------------------------- probability metrics (AUROC/ECE)
+def fetch_softmax_runs(entity: str = ENTITY, project: str = PROJECT, tag: str = PROB_TAG):
+    """Runs holding per-sample probability artifacts (from log_prob_metrics.py).
+
+    Returns ``[]`` if none exist yet (unlike ``fetch_runs``, which raises), so the
+    notebooks can simply skip the AUROC/ECE section until those runs are created.
+    """
+    api = wandb.Api()
+    return list(api.runs(f"{entity}/{project}", filters={"tags": {"$in": [tag]}}))
+
+
+def load_probability_frame(run, split: str):
+    """Return ``(probs [N, C], labels [N])`` from the `{split}_probs` artifact.
+
+    Matched by artifact type + split suffix (rename-proof, like the confusion
+    loader). Returns None if the run has no probabilities for this split.
+    """
+    suffix = f"_{split}_probs"
+    for art in run.logged_artifacts():
+        if art.type != "probabilities":
+            continue
+        name = art.name.split(":")[0]
+        if not name.endswith(suffix):
+            continue
+        # "_test_probs" also matches "_custom_test_probs"; disambiguate.
+        if split == NORMAL_SPLIT and name.endswith(f"_{SHIFT_SPLIT}_probs"):
+            continue
+        csvs = sorted(Path(art.download()).glob("*.csv"))
+        if csvs:
+            df = pd.read_csv(csvs[0])
+            prob_cols = [c for c in df.columns if c.startswith("p_")]
+            return df[prob_cols].to_numpy(), df["true_label"].to_numpy()
+    return None
+
+
+def auroc_scores(probs, labels, class_names):
+    """One-vs-rest AUROC per class + macro average.
+
+    Classes absent from ``labels`` (possible on the imbalanced shift set) are
+    undefined -> NaN; the macro is averaged over the rest.
+    """
+    labels = np.asarray(labels)
+    n_classes = probs.shape[1]
+    binarized = label_binarize(labels, classes=list(range(n_classes)))
+    per_class = {}
+    for c in range(n_classes):
+        y_c = binarized[:, c]
+        if y_c.min() == y_c.max():  # only one class present -> AUROC undefined
+            per_class[class_names[c]] = float("nan")
+        else:
+            per_class[class_names[c]] = float(roc_auc_score(y_c, probs[:, c]))
+    valid = [v for v in per_class.values() if not np.isnan(v)]
+    macro = float(np.mean(valid)) if valid else float("nan")
+    return macro, per_class
+
+
+def expected_calibration_error(probs, labels, n_bins: int = 15) -> float:
+    """Top-label ECE with equal-width confidence bins (lower = better calibrated)."""
+    probs = np.asarray(probs)
+    labels = np.asarray(labels)
+    confidence = probs.max(axis=1)
+    correct = (probs.argmax(axis=1) == labels).astype(float)
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    n = len(labels)
+    ece = 0.0
+    for i in range(n_bins):
+        in_bin = (confidence > edges[i]) & (confidence <= edges[i + 1])
+        if i == 0:
+            in_bin |= confidence <= edges[0]
+        if in_bin.sum():
+            ece += (in_bin.sum() / n) * abs(correct[in_bin].mean() - confidence[in_bin].mean())
+    return float(ece)
+
+
+def build_probability_metrics(runs, n_bins: int = 15) -> pd.DataFrame:
+    """AUROC (macro OvR + per-class) and ECE per softmax run x split.
+
+    Long DataFrame, one row per run x split, carrying ``source_run_name`` so it
+    merges back onto ``build_metrics()`` output by model / source run.
+    """
+    rows = []
+    for run in runs:
+        class_names = run_class_names(run)
+        for split in SPLITS:
+            row = {
+                "run": run.name,
+                "model": model_label(run),
+                "source_run_name": run.config.get("source_run_name", run.name),
+                "split": split,
+                "split_label": SPLITS[split],
+            }
+            data = load_probability_frame(run, split)
+            if data is not None:
+                probs, labels = data
+                macro, per_class = auroc_scores(probs, labels, class_names)
+                row["auroc_macro_ovr"] = macro
+                row["ece"] = expected_calibration_error(probs, labels, n_bins)
+                for cls, value in per_class.items():
+                    row[f"auroc_{cls}"] = value
+            else:
+                row["auroc_macro_ovr"] = np.nan
+                row["ece"] = np.nan
+                print(f"note: no {split} probability artifact for {run.name}")
+            rows.append(row)
+    return pd.DataFrame(rows)
