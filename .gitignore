@@ -20,3 +20,8 @@ confusion_data/
 wandb/
 docs/
 gradcam_outputs/
+
+notebooks/artifacts/
+notebooks/figures/
+artifacts/
+prob_data/
