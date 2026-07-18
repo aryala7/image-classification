@@ -13,15 +13,15 @@ training:
   num_classes: 6
   batch_size: 32
   lr: 0.0001
-  epochs: 20 # Default epoch ceiling per model; override per call via train_all(epochs=...)
+  epochs: 20 # Default epoch ceiling per model via train_all(epochs=...)
   optimizer: "AdamW"
   loss: "CrossEntropyLoss"
   scheduler:
-    factor: 0.5 # Halving the LR on a plateau provides a noticeable adaptation
+    factor: 0.5 # Halving the LR on a plateau
     patience: 2 # Number of epochs without improvement, after which lr reduced
-    threshold: 0.0001 # 1e-4 Ignores minor noisy decimal shifts at num precision 
-    cooldown: 0 # Grace period of epochs to allow the training curve to stabilize
-    min_lr: 0.000001 # 1e-6 Absolute floor; dropping below 1e-6 yields diminishing returns
+    threshold: 0.0001 # 1e-4 Ignores minor shifts
+    cooldown: 0 # Grace period of epochs
+    min_lr: 0.000001 # 1e-6 dropping below yields diminishing returns
   wandb:
     project: "trash-busters"
     entity: "trash-busters"

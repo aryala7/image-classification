@@ -97,11 +97,19 @@ def get_fine_tuned_models():
         device=DEVICE
     )
 
+    convnext_no_trash = _load_model_from_artifact(
+        model_fn=MODEL_REGISTRY.get("convnext_tiny"),
+        artifact_path="trash-busters/convnext_tiny_no_trash_20epochs.pth:v0",
+        device=DEVICE,
+        num_classes=5
+    )
+
     return {
         "resnet18_20": resnet18_20,
         "mlp_mixer_20": mlp_mixer_20,
         "convnext_20": convnext_20,
         "deit_20": deit_20,
+        "convnext_no_trash": convnext_no_trash,
     }
 
 def load_class_names() -> tuple[int, list[str]]:
