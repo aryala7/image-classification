@@ -28,6 +28,22 @@ Update it after changing dependencies:
 conda env update -f environment.yml --prune
 ```
 
+## Getting Started
+
+Many of the different functionalities included in this project (like training the models, running the tests or classifying an image) can be accessed as a console app.
+
+### CMD App
+
+To run the console application, use:
+
+```bash
+python main.py
+```
+
+The console prompt will guide with the selection of the different options to run.
+
+Models can be either pulled from WandB or run from the local `models` folder.
+
 ## Datasets Used
 
 This project combines and harmonises the following public waste-classification datasets:
