@@ -93,7 +93,7 @@ Steps 1–3 rebuild the published Hugging Face datasets from scratch and are onl
 
 ## Running main.py
 
-`main.py` starts an interactive shell (`(main)` prompt) rather than taking CLI flags directly:
+`main.py` starts an interactive shell (`(main)` prompt) rather than taking CLI flags directly. Model checkpoints can be pulled from Weights & Biases or loaded from the local `models/` folder:
 
 - `train` — optionally seeds RNGs for reproducibility, then prompts you to pick one or more models from the registry (`resnet18`, `mlp_mixer`, `convnext_tiny`, `deit`) to fine-tune, using the hyperparameters in `configs/config.yaml`
 - `test` — prompts you to pick a fine-tuned checkpoint from `models/` and a path to a single image, and prints the predicted class
