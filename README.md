@@ -2,6 +2,8 @@
 
 TrashBusters classifies waste images into six categories (cardboard, glass, metal, paper, plastic, trash). It combines four public waste-classification datasets into a single harmonised label space, trains and compares several CNN/transformer architectures on the result, and uses explainability methods (Grad-CAM, Integrated Gradients, Occlusion) to inspect what the models are actually keying on. Model robustness is additionally checked against a small custom, real-world image set to measure performance under domain shift.
 
+`main` is the canonical branch; other branches are in-progress work and can be considered stale.
+
 ## Repository Structure
 
 ```text
