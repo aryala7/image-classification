@@ -23,5 +23,7 @@ gradcam_outputs/
 
 notebooks/artifacts/
 notebooks/figures/
+notebooks/tables/
+notebooks/charts/
 artifacts/
 prob_data/
