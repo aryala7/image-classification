@@ -9,6 +9,7 @@ dependencies:
   - scikit-learn
   - matplotlib
   - jupyterlab
+  - openpyxl
   - pyyaml
   - tqdm
   - pillow
